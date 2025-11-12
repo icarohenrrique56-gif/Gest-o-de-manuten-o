@@ -69,6 +69,23 @@ function setupEventListeners() {
     console.log('✅ Event listeners configurados');
 }
 
+// Atualiza UI baseada no estado de autenticação
+function updateAuthUI(user) {
+    const addTaskBtn = document.getElementById('add-task-btn');
+    const logoutBtn = document.getElementById('logout-btn');
+    const userEmailDisplay = document.getElementById('user-email-display');
+
+    if (user) {
+        if (addTaskBtn) addTaskBtn.disabled = false;
+        if (logoutBtn) logoutBtn.style.display = 'inline';
+        if (userEmailDisplay) userEmailDisplay.textContent = user.email;
+    } else {
+        if (addTaskBtn) addTaskBtn.disabled = true;
+        if (logoutBtn) logoutBtn.style.display = 'none';
+        if (userEmailDisplay) userEmailDisplay.textContent = '...';
+    }
+}
+
 // ============= TAREFAS =============
 
 function loadTasks() {
