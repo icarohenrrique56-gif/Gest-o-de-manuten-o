@@ -2,9 +2,25 @@
 
 document.addEventListener('DOMContentLoaded', () => {
     
+    // Validação: Verificar se Firebase foi carregado
+    if (typeof firebase === 'undefined') {
+        console.error('❌ ERRO: Firebase não foi carregado. Verifique se os scripts compat foram incluídos no HTML.');
+        alert('Erro ao inicializar o sistema. Verifique o console (F12) para detalhes.');
+        return;
+    }
+    
+    if (!firebase.auth) {
+        console.error('❌ ERRO: firebase.auth não está disponível. Verifique se firebase-auth-compat.js foi carregado.');
+        return;
+    }
+    
+    console.log('✅ Firebase carregado com sucesso');
+    
     const auth = firebase.auth();
     // NOVO: Inicializa o provedor do Google
     const googleProvider = new firebase.auth.GoogleAuthProvider();
+    
+    console.log('✅ Auth inicializado');
 
     // --- ELEMENTOS ---
     const views = {
@@ -32,15 +48,33 @@ document.addEventListener('DOMContentLoaded', () => {
         // NOVO: Botão Google
         btnGoogleLogin: document.getElementById('btn-google-login')
     };
+    
+    // Debug: Verificar se elementos foram encontrados
+    console.log('Elementos encontrados:', {
+        'login-view': !!views.login,
+        'register-view': !!views.register,
+        'login-form': !!forms.login,
+        'register-form': !!forms.register,
+        'gotoRegister': !!buttons.gotoRegister,
+        'btnGoogleLogin': !!buttons.btnGoogleLogin,
+        'togglePass': buttons.togglePass.length
+    });
 
     // --- 1. ALTERNAR TELAS ---
     
+    if (!buttons.gotoRegister || !buttons.gotoLogin) {
+        console.error('❌ Botões de alternar telas não encontrados');
+        return;
+    }
+    
     buttons.gotoRegister.addEventListener('click', () => {
+        console.log('➜ Alterando para tela de registro');
         views.login.classList.add('hidden');
         views.register.classList.remove('hidden');
     });
 
     buttons.gotoLogin.addEventListener('click', () => {
+        console.log('➜ Alterando para tela de login');
         views.register.classList.add('hidden');
         views.login.classList.remove('hidden');
     });
@@ -67,19 +101,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 3. LOGIN ---
 
+    if (!forms.login) {
+        console.error('❌ Formulário de login não encontrado');
+        return;
+    }
+
     forms.login.addEventListener('submit', async (e) => {
         e.preventDefault();
+        console.log('➜ Tentando fazer login...');
         const btn = document.getElementById('btn-login-submit');
         const originalText = btn.innerHTML;
         
         setLoading(btn, true);
 
         try {
+            console.log('Enviando credenciais para Firebase...');
             await auth.signInWithEmailAndPassword(inputs.loginEmail.value, inputs.loginPass.value);
+            console.log('✅ Login bem-sucedido!');
             showToast('Login realizado com sucesso!', 'success');
             // Redirecionamento é automático pelo onAuthStateChanged ou:
             setTimeout(() => window.location.href = 'index.html', 1000);
         } catch (error) {
+            console.error('❌ Erro no login:', error.code, error.message);
             handleAuthError(error);
             setLoading(btn, false, originalText);
         }
