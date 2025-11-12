@@ -43,6 +43,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Event Listeners
     setupEventListeners();
+
+    // Fallback: força atualização UI após 500ms se for necessário
+    setTimeout(() => {
+        const user = auth.currentUser;
+        if (user && !document.getElementById('add-task-btn').disabled) {
+            console.log('✅ Botão Nova OS já habilitado (updateAuthUI funcionou)');
+        } else if (user) {
+            console.log('⚠️ Fallback: habilitando Nova OS manualmente');
+            updateAuthUI(user);
+        }
+    }, 500);
 });
 
 // ============= SETUP EVENTOS =============
