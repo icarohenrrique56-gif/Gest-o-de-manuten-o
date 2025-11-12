@@ -195,6 +195,8 @@ async function saveTask(e) {
         return;
     }
 
+    console.log('➜ saveTask currentUser:', currentUser ? { uid: currentUser.uid, email: currentUser.email } : null);
+
     const taskId = document.getElementById('task-id-hidden').value;
     const title = document.getElementById('task-text-input').value;
     const idOS = document.getElementById('task-id-input').value || 'OS-' + Date.now();
@@ -220,6 +222,7 @@ async function saveTask(e) {
             await db.ref(`tasks/${taskId}`).update(taskData);
             console.log('✅ Tarefa atualizada:', taskId);
         } else {
+            console.log('➜ Enviando taskData para Realtime DB:', taskData);
             const ref = await db.ref('tasks').push(taskData);
             console.log('✅ Tarefa criada:', ref.key);
         }
@@ -227,8 +230,12 @@ async function saveTask(e) {
         closeTaskModal();
         loadTasks();
     } catch (error) {
-        console.error('❌ Erro ao salvar tarefa:', error);
-        showToast('Erro ao salvar tarefa', 'error');
+        console.error('❌ Erro ao salvar tarefa:', error.code || error, error.message || '');
+        if (error.code === 'PERMISSION_DENIED' || error.code === 'permission-denied') {
+            showToast('Permissão negada: verifique as regras do Realtime Database.', 'error');
+        } else {
+            showToast('Erro ao salvar tarefa: ' + (error.message || ''), 'error');
+        }
     }
 }
 

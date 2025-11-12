@@ -181,13 +181,15 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
 
         try {
+            console.log('➜ Iniciando Google Sign-In (popup)...');
             await auth.signInWithPopup(googleProvider);
-            // O login foi bem-sucedido
+            console.log('✅ Google Sign-In: sucesso');
             showToast('Login com Google realizado!', 'success');
             setTimeout(() => window.location.href = 'index.html', 1000);
         
         } catch (error) {
-            // Trata erros (inclusive se o usuário fechar o popup)
+            console.error('❌ Google Sign-In falhou:', { code: error.code, message: error.message });
+            // Erros comuns: popup-closed-by-user, popup-blocked-by-browser, account-exists-with-different-credential
             handleAuthError(error);
             btn.disabled = false;
             btn.innerHTML = originalText;
