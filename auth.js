@@ -132,11 +132,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     forms.register.addEventListener('submit', async (e) => {
         e.preventDefault();
+        console.log('➜ Iniciando registro de usuário...');
         const btn = document.getElementById('btn-reg-submit');
         const originalText = btn.innerHTML;
 
         // Validação Senhas Iguais
         if (inputs.regPass.value !== inputs.regConfirm.value) {
+            console.warn('⚠️ As senhas não conferem');
             showToast('As senhas não conferem.', 'error');
             inputs.regConfirm.focus();
             return;
@@ -144,6 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Validação Tamanho Senha
         if (inputs.regPass.value.length < 6) {
+            console.warn('⚠️ Senha muito curta');
             showToast('A senha deve ter no mínimo 6 caracteres.', 'error');
             return;
         }
@@ -151,10 +154,14 @@ document.addEventListener('DOMContentLoaded', () => {
         setLoading(btn, true);
 
         try {
+            console.log('📧 E-mail:', inputs.regEmail.value);
+            console.log('🔐 Criando usuário no Firebase...');
             await auth.createUserWithEmailAndPassword(inputs.regEmail.value, inputs.regPass.value);
+            console.log('✅ Conta criada com sucesso!');
             showToast('Conta criada! Redirecionando...', 'success');
             setTimeout(() => window.location.href = 'index.html', 1500);
         } catch (error) {
+            console.error('❌ Erro ao criar conta:', error.code, error.message);
             handleAuthError(error);
             setLoading(btn, false, originalText);
         }
@@ -203,21 +210,53 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function handleAuthError(error) {
-        console.error(error);
+        console.error('🔴 Erro Firebase:', {
+            code: error.code,
+            message: error.message,
+            customData: error.customData
+        });
+        
         let msg = 'Ocorreu um erro inesperado.';
         
         switch(error.code) {
-            case 'auth/invalid-email': msg = 'E-mail inválido.'; break;
-            case 'auth/user-not-found': msg = 'Usuário não encontrado.'; break;
-            case 'auth/wrong-password': msg = 'Senha incorreta.'; break;
-            case 'auth/email-already-in-use': msg = 'Este e-mail já está cadastrado.'; break;
-            case 'auth/weak-password': msg = 'Senha muito fraca.'; break;
-            case 'auth/too-many-requests': msg = 'Muitas tentativas. Tente mais tarde.'; break;
-            // NOVOS: Erros comuns do Google
-            case 'auth/popup-closed-by-user': msg = 'Login cancelado. O popup foi fechado.'; break;
-            case 'auth/account-exists-with-different-credential': msg = 'Este e-mail já está em uso com outro método de login.'; break;
-            case 'auth/popup-blocked-by-browser': msg = 'O popup foi bloqueado pelo navegador. Libere os popups para este site.'; break;
+            case 'auth/invalid-email': 
+                msg = '❌ E-mail inválido. Digite um e-mail válido (ex: usuario@empresa.com).'; 
+                break;
+            case 'auth/user-not-found': 
+                msg = '❌ Usuário não encontrado. Verifique o e-mail ou crie uma nova conta.'; 
+                break;
+            case 'auth/wrong-password': 
+                msg = '❌ Senha incorreta. Tente novamente.'; 
+                break;
+            case 'auth/email-already-in-use': 
+                msg = '❌ Este e-mail já está cadastrado. Tente fazer login ou use outro e-mail.'; 
+                break;
+            case 'auth/weak-password': 
+                msg = '❌ Senha muito fraca. Use pelo menos 6 caracteres.'; 
+                break;
+            case 'auth/too-many-requests': 
+                msg = '❌ Muitas tentativas de login. Tente novamente em alguns minutos.'; 
+                break;
+            case 'auth/popup-closed-by-user': 
+                msg = '❌ Login cancelado. O popup foi fechado.'; 
+                break;
+            case 'auth/account-exists-with-different-credential': 
+                msg = '❌ Este e-mail já está em uso com outro método de login.'; 
+                break;
+            case 'auth/popup-blocked-by-browser': 
+                msg = '❌ O popup foi bloqueado pelo navegador. Libere os popups para este site.'; 
+                break;
+            case 'auth/network-request-failed':
+                msg = '❌ Erro de conexão. Verifique sua internet e tente novamente.';
+                break;
+            case 'auth/operation-not-allowed':
+                msg = '❌ Este método de autenticação não está habilitado no Firebase. Contate o administrador.';
+                break;
+            default:
+                msg = `❌ Erro: ${error.message || 'desconhecido'}`;
         }
+        
+        console.error('📌 Mensagem final:', msg);
         showToast(msg, 'error');
     }
 
