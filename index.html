@@ -46,6 +46,11 @@
 
         <!-- Barra de Ferramentas -->
         <div class="flex items-center space-x-2 mt-2 md:mt-0">
+            <!-- NOVO: Barra de Pesquisa -->
+            <div class="relative">
+                <input type="text" id="search-bar" placeholder="Pesquisar OS..." class="bg-green-800 text-white text-sm border border-green-700 rounded px-2 py-1.5 pl-8 outline-none focus:ring-1 focus:ring-green-400 placeholder-green-300">
+                <svg class="w-4 h-4 text-green-300 absolute left-2.5 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            </div>
             <!-- Filtro -->
             <select id="header-priority-select" class="bg-green-800 text-white text-sm border border-green-700 rounded px-2 py-1.5 outline-none focus:ring-1 focus:ring-green-400">
                 <option value="all">Todas Prioridades</option>
@@ -66,15 +71,16 @@
             </label>
             <input type="file" id="csv-upload" accept=".csv" class="hidden">
 
-            <!-- Botão Adicionar -->
-            <button id="add-task-btn" class="bg-white text-green-900 hover:bg-gray-100 px-4 py-1.5 rounded text-sm font-bold transition-colors shadow flex items-center gap-1">
+            <!-- Botão Adicionar (Agora desabilitado por padrão) -->
+            <button id="add-task-btn" class="bg-white text-green-900 hover:bg-gray-100 px-4 py-1.5 rounded text-sm font-bold transition-colors shadow flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                 <span>+</span> Nova OS
             </button>
 
             <!-- User Menu -->
             <div class="ml-2 border-l border-green-700 pl-3 flex flex-col items-end">
                 <span id="user-email-display" class="text-xs text-green-100 font-medium">...</span>
-                <button id="logout-btn" class="text-xs text-red-300 hover:text-white underline">Sair</button>
+                <!-- BOTÃO SAIR ATUALIZADO -->
+                <button id="logout-btn" class="text-xs text-red-300 font-medium hover:bg-red-700 hover:text-white rounded px-2 py-1 transition-colors">Sair</button>
             </div>
         </div>
     </div>
@@ -144,7 +150,7 @@
 </main>
 
 <!-- MODAL TAREFA (Adicionar/Editar) -->
-<div id="task-modal" class="fixed inset-0 bg-black bg-opacity-70 hidden flex items-center justify-center z-50">
+<div id="task-modal" class="fixed inset-0 bg-black bg-opacity-70 hidden flex items-center justify-center z-50 p-4">
     <div class="bg-white rounded-lg shadow-xl w-full max-w-md m-4 transform transition-all">
         <div class="flex justify-between items-center p-4 border-b">
             <h3 id="modal-title" class="text-lg font-bold text-gray-800">Nova Ordem de Serviço</h3>
@@ -153,6 +159,12 @@
         <form id="task-form" class="p-4 space-y-4">
             <input type="hidden" id="task-id-hidden">
             
+            <!-- SEÇÃO QR CODE (NOVA) -->
+            <div id="qr-code-wrapper" class="hidden text-center p-4 bg-gray-100 rounded-lg items-center justify-center flex flex-col">
+                <img id="qr-code-img" src="https://placehold.co/150x150/eee/ccc?text=QR" alt="QR Code" class="w-36 h-36 rounded-md border">
+                <p class="text-xs text-gray-600 mt-2">QR Code para esta OS</p>
+            </div>
+
             <div>
                 <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Código / OS</label>
                 <input type="text" id="task-id-input" class="w-full border border-gray-300 rounded p-2 focus:border-green-500 focus:ring-1 focus:ring-green-500 outline-none" placeholder="Ex: OS-9988">
@@ -162,6 +174,12 @@
             <div>
                 <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Descrição do Serviço</label>
                 <textarea id="task-text-input" rows="3" class="w-full border border-gray-300 rounded p-2 focus:border-green-500 focus:ring-1 focus:ring-green-500 outline-none" placeholder="Detalhes da peça ou serviço..." required></textarea>
+            </div>
+
+            <!-- NOVO: Campo Responsável -->
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Responsável</label>
+                <input type="text" id="task-owner-input" class="w-full border border-gray-300 rounded p-2 focus:border-green-500 focus:ring-1 focus:ring-green-500 outline-none" placeholder="Ex: João Silva, Equipe Elétrica">
             </div>
 
             <div>
@@ -191,7 +209,7 @@
 </div>
 
 <!-- MODAL LOGS (Histórico) -->
-<div id="logs-modal" class="fixed inset-0 bg-black bg-opacity-70 hidden flex items-center justify-center z-50">
+<div id="logs-modal" class="fixed inset-0 bg-black bg-opacity-70 hidden flex items-center justify-center z-50 p-4">
     <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl m-4 flex flex-col max-h-[80vh]">
         <div class="flex justify-between items-center p-4 border-b bg-gray-50 rounded-t-lg">
             <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
@@ -212,11 +230,28 @@
                 </thead>
                 <tbody id="logs-table-body" class="bg-white divide-y divide-gray-200">
                     <!-- Logs serão inseridos via JS -->
+                    <tr><td colspan="4" class="p-4 text-center text-gray-500">Carregando logs...</td></tr>
                 </tbody>
             </table>
         </div>
     </div>
 </div>
+
+<!-- MODAL CONFIRMAÇÃO DELETE -->
+<div id="delete-modal" class="fixed inset-0 bg-black bg-opacity-70 hidden flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-sm m-4">
+        <div class="p-6">
+            <h3 class="text-lg font-bold text-gray-900">Confirmar Exclusão</h3>
+            <p class="text-sm text-gray-600 mt-2">Tem certeza que deseja excluir esta OS? Esta ação é permanente e será registrada.</p>
+            <p id="delete-os-id" class="text-sm font-bold text-red-600 mt-2"></p>
+        </div>
+        <div class="bg-gray-50 p-4 flex justify-end gap-3 rounded-b-lg">
+            <button id="cancel-delete-btn" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded text-sm">Cancelar</button>
+            <button id="confirm-delete-btn" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm font-medium shadow">Sim, Excluir</button>
+        </div>
+    </div>
+</div>
+
 
 <!-- Firebase Scripts -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
