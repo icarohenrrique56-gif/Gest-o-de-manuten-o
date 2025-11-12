@@ -1,22 +1,25 @@
-// firebase-init.js
+// firebase.init.js
 
-// ----------------------------------------------------------------
-// IMPORTANTE:
-// 1. Vá ao seu console do Firebase (https://console.firebase.google.com/)
-// 2. Crie um novo projeto ou selecione um existente.
-// 3. Adicione um aplicativo Web (ícone </>)
-// 4. Copie o objeto 'firebaseConfig' e cole-o abaixo.
-// ----------------------------------------------------------------
+// Inicialização do Firebase usando módulos ES (import direto dos CDN)
+// Substituído pelo snippet fornecido pelo usuário.
 
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
+import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-analytics.js";
+
+// Sua configuração do Firebase
 const firebaseConfig = {
-  apiKey: "SUA_API_KEY",
-  authDomain: "SEU_AUTH_DOMAIN",
-  databaseURL: "SEU_DATABASE_URL", // Essencial para o Realtime DB
-  projectId: "SEU_PROJECT_ID",
-  storageBucket: "SEU_STORAGE_BUCKET",
-  messagingSenderId: "SEU_MESSAGING_SENDER_ID",
-  appId: "SEU_APP_ID"
+  apiKey: "AIzaSyAe5vcJe5mUUxAX5mXWFjCwL26esbxLvbo",
+  authDomain: "projeto-p-c672e.firebaseapp.com",
+  projectId: "projeto-p-c672e",
+  storageBucket: "projeto-p-c672e.firebasestorage.app",
+  messagingSenderId: "474078684255",
+  appId: "1:474078684255:web:d7b603028fbe0713e0a7ea",
+  measurementId: "G-ZCKVM5HW4G"
 };
 
 // Inicializa o Firebase
-const app = firebase.initializeApp(firebaseConfig);
+export const app = initializeApp(firebaseConfig);
+export const analytics = getAnalytics(app);
+
+// Observação: importe `firebase.init.js` em suas páginas como um módulo:
+// <script type="module" src="/path/to/firebase.init.js"></script>
