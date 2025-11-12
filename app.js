@@ -29,9 +29,15 @@ document.addEventListener('DOMContentLoaded', () => {
             currentUser = user;
             document.getElementById('user-email-display').textContent = user.email;
             loadTasks();
+            updateAuthUI(user);
         } else {
             console.log('❌ Usuário não autenticado. Redirecionando...');
-            window.location.href = 'login.html';
+            // Se estivermos na página index, redireciona para o login.
+            if (window.location.pathname.endsWith('index.html') || window.location.pathname === '/' ) {
+                window.location.href = 'login.html';
+            } else {
+                updateAuthUI(null);
+            }
         }
     });
 
@@ -248,8 +254,14 @@ async function saveTask(e) {
         loadTasks();
     } catch (error) {
         console.error('❌ Erro ao salvar tarefa:', error.code || error, error.message || '');
-        if (error.code === 'PERMISSION_DENIED' || error.code === 'permission-denied') {
-            showToast('Permissão negada: verifique as regras do Realtime Database.', 'error');
+        // Tratar permission-denied explicitamente
+        const code = (error && (error.code || error.codeName)) || '';
+        if (code.toString().toLowerCase().includes('permission')) {
+            showToast('Permissão negada: verifique as regras do Realtime Database e se você está autenticado.', 'error');
+            console.warn('Sugestão: abra o Console do Firebase → Realtime Database → Rules e confirme que `tasks` permite .write quando auth != null.');
+        } else if (code === 'auth/no-current-user' || !currentUser) {
+            showToast('Você não está autenticado. Faça login para adicionar uma OS.', 'error');
+            setTimeout(() => window.location.href = 'login.html', 700);
         } else {
             showToast('Erro ao salvar tarefa: ' + (error.message || ''), 'error');
         }
