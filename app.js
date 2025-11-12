@@ -147,6 +147,8 @@ function renderTasks() {
 
     // Atualizar contadores
     updateCounters();
+    // Inicializar Sortable após renderizar tarefas
+    try { setupSortable(); } catch (e) { console.warn('Sortable init falhou:', e); }
 }
 
 function createTaskElement(task) {
@@ -175,6 +177,9 @@ function createTaskElement(task) {
             <button onclick="editTask('${task.id}')" class="text-xs text-blue-600 hover:underline">Editar</button>
         </div>
     `;
+
+    // marca o elemento com id da task para uso pelo Sortable
+    div.dataset.taskId = task.id;
 
     return div;
 }
@@ -314,6 +319,77 @@ function filterTasks() {
             if (col) col.appendChild(createTaskElement(task));
         });
     }
+}
+
+// ============= SORTABLE (Arrastar/Soltar) =============
+function setupSortable() {
+    const columnIds = ['col-restaurar', 'col-diagnostico', 'col-restauracao', 'col-teste', 'col-pronto'];
+    columnIds.forEach(colId => {
+        const col = document.getElementById(colId);
+        if (!col) return;
+
+        // evita inicializar duas vezes
+        if (col._sortableInitialized) return;
+
+        // cria instancia Sortable
+        /* global Sortable */
+        new Sortable(col, {
+            group: 'kanban',
+            animation: 150,
+            draggable: '.p-3',
+            onEnd: async (evt) => {
+                const item = evt.item;
+                const taskId = item.dataset.taskId;
+                const from = evt.from;
+                const to = evt.to;
+                const oldIndex = evt.oldIndex;
+                const newIndex = evt.newIndex;
+
+                const newColumn = to.dataset.columnId || to.id;
+                const oldColumn = from.dataset.columnId || from.id;
+
+                if (!taskId) return;
+
+                console.log('➜ Move detectado:', { taskId, from: oldColumn, to: newColumn, oldIndex, newIndex });
+
+                // atualização otimista em memória
+                const task = currentTasks.find(t => t.id === taskId);
+                const prevColumn = task ? task.column : oldColumn;
+                if (task) task.column = newColumn;
+
+                try {
+                    await db.ref(`tasks/${taskId}`).update({ column: newColumn, updatedAt: Date.now() });
+                    showToast('OS movida com sucesso.', 'success');
+                    updateCounters();
+                } catch (error) {
+                    console.error('❌ Erro ao atualizar coluna da OS:', error);
+
+                    // Reverter DOM para a coluna anterior
+                    if (from) {
+                        if (oldIndex >= from.children.length) {
+                            from.appendChild(item);
+                        } else {
+                            from.insertBefore(item, from.children[oldIndex]);
+                        }
+                    }
+
+                    // Reverter memória
+                    if (task) task.column = prevColumn;
+
+                    const code = (error && (error.code || '')).toString().toLowerCase();
+                    if (code.includes('permission')) {
+                        showToast('Permissão negada: não foi possível mover. Verifique regras do Realtime DB.', 'error');
+                    } else if (code.includes('auth')) {
+                        showToast('Autenticação necessária para mover OS. Faça login.', 'error');
+                    } else {
+                        showToast('Erro ao mover OS: ' + (error.message || ''), 'error');
+                    }
+                }
+            }
+        });
+
+        col._sortableInitialized = true;
+    });
 }
 
 // ============= AUTENTICAÇÃO =============
