@@ -357,39 +357,157 @@ function setupSortable() {
                 const prevColumn = task ? task.column : oldColumn;
                 if (task) task.column = newColumn;
 
-                try {
-                    await db.ref(`tasks/${taskId}`).update({ column: newColumn, updatedAt: Date.now() });
-                    showToast('OS movida com sucesso.', 'success');
-                    updateCounters();
-                } catch (error) {
-                    console.error('❌ Erro ao atualizar coluna da OS:', error);
-
-                    // Reverter DOM para a coluna anterior
-                    if (from) {
-                        if (oldIndex >= from.children.length) {
-                            from.appendChild(item);
-                        } else {
-                            from.insertBefore(item, from.children[oldIndex]);
-                        }
-                    }
-
-                    // Reverter memória
-                    if (task) task.column = prevColumn;
-
-                    const code = (error && (error.code || '')).toString().toLowerCase();
-                    if (code.includes('permission')) {
-                        showToast('Permissão negada: não foi possível mover. Verifique regras do Realtime DB.', 'error');
-                    } else if (code.includes('auth')) {
-                        showToast('Autenticação necessária para mover OS. Faça login.', 'error');
-                    } else {
-                        showToast('Erro ao mover OS: ' + (error.message || ''), 'error');
-                    }
-                }
+                // Abrir modal de comentário para capturar descrição da etapa
+                await openStatusCommentModal(taskId, newColumn, prevColumn, item, from, oldIndex);
             }
         });
 
         col._sortableInitialized = true;
     });
+}
+
+// ============= COMENTÁRIOS DE STATUS =============
+
+function openStatusCommentModal(taskId, newColumn, oldColumn, domItem, fromCol, oldIndex) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('status-comment-modal');
+        if (!modal) {
+            console.error('❌ Modal de comentário não encontrado');
+            resolve();
+            return;
+        }
+
+        const commentInput = document.getElementById('status-comment-input');
+        const saveBtn = document.getElementById('save-status-comment-btn');
+        const cancelBtn = document.getElementById('cancel-status-comment-btn');
+
+        if (!commentInput || !saveBtn || !cancelBtn) {
+            console.error('❌ Elementos do modal não encontrados');
+            resolve();
+            return;
+        }
+
+        // Limpar input e abrir modal
+        commentInput.value = '';
+        commentInput.focus();
+        modal.classList.remove('hidden');
+
+        // Handler para salvar
+        const onSave = async () => {
+            const comment = commentInput.value.trim();
+            modal.classList.add('hidden');
+            removeListeners();
+
+            try {
+                // Salvar comentário + atualizar coluna
+                const updateData = {
+                    column: newColumn,
+                    updatedAt: Date.now(),
+                    lastStatus: comment || '(sem descrição)',
+                    lastStatusBy: currentUser ? currentUser.email : 'anônimo',
+                    lastStatusAt: Date.now()
+                };
+
+                // Se houver histórico de comentários, manter array
+                const task = currentTasks.find(t => t.id === taskId);
+                if (task && task.statusHistory && Array.isArray(task.statusHistory)) {
+                    updateData.statusHistory = [
+                        ...task.statusHistory,
+                        {
+                            column: newColumn,
+                            comment: comment || '(sem descrição)',
+                            by: currentUser ? currentUser.email : 'anônimo',
+                            at: Date.now()
+                        }
+                    ];
+                } else {
+                    updateData.statusHistory = [{
+                        column: newColumn,
+                        comment: comment || '(sem descrição)',
+                        by: currentUser ? currentUser.email : 'anônimo',
+                        at: Date.now()
+                    }];
+                }
+
+                await db.ref(`tasks/${taskId}`).update(updateData);
+                showToast(`OS movida para ${getColumnLabel(newColumn)}. ${comment ? 'Comentário: ' + comment : ''}`, 'success');
+                updateCounters();
+                resolve();
+            } catch (error) {
+                console.error('❌ Erro ao atualizar status:', error);
+
+                // Reverter DOM
+                if (fromCol) {
+                    if (oldIndex >= fromCol.children.length) {
+                        fromCol.appendChild(domItem);
+                    } else {
+                        fromCol.insertBefore(domItem, fromCol.children[oldIndex]);
+                    }
+                }
+
+                // Reverter memória
+                const task = currentTasks.find(t => t.id === taskId);
+                if (task) task.column = oldColumn;
+
+                const code = (error && (error.code || '')).toString().toLowerCase();
+                if (code.includes('permission')) {
+                    showToast('Permissão negada: não foi possível atualizar. Verifique regras do Realtime DB.', 'error');
+                } else if (code.includes('auth')) {
+                    showToast('Autenticação necessária. Faça login.', 'error');
+                } else {
+                    showToast('Erro ao atualizar status: ' + (error.message || ''), 'error');
+                }
+                resolve();
+            }
+        };
+
+        const onCancel = () => {
+            modal.classList.add('hidden');
+            removeListeners();
+
+            // Reverter DOM
+            if (fromCol) {
+                if (oldIndex >= fromCol.children.length) {
+                    fromCol.appendChild(domItem);
+                } else {
+                    fromCol.insertBefore(domItem, fromCol.children[oldIndex]);
+                }
+            }
+
+            // Reverter memória
+            const task = currentTasks.find(t => t.id === taskId);
+            if (task) task.column = oldColumn;
+
+            showToast('Movimento cancelado.', 'error');
+            resolve();
+        };
+
+        const onKeyDown = (e) => {
+            if (e.key === 'Enter' && e.ctrlKey) onSave();
+            if (e.key === 'Escape') onCancel();
+        };
+
+        const removeListeners = () => {
+            saveBtn.removeEventListener('click', onSave);
+            cancelBtn.removeEventListener('click', onCancel);
+            commentInput.removeEventListener('keydown', onKeyDown);
+        };
+
+        saveBtn.addEventListener('click', onSave);
+        cancelBtn.addEventListener('click', onCancel);
+        commentInput.addEventListener('keydown', onKeyDown);
+    });
+}
+
+function getColumnLabel(colId) {
+    const labels = {
+        'col-restaurar': 'A Restaurar',
+        'col-diagnostico': 'Em Diagnóstico',
+        'col-restauracao': 'Em Restauração',
+        'col-teste': 'Qualidade/Teste',
+        'col-pronto': 'Pronto'
+    };
+    return labels[colId] || colId;
 }
 
 // ============= AUTENTICAÇÃO =============
