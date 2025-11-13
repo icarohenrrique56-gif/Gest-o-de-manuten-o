@@ -528,7 +528,10 @@ function logout() {
 
 function showToast(message, type = 'success') {
     const toast = document.createElement('div');
-    const colors = type === 'success' ? 'bg-green-600' : 'bg-red-600';
+        }).catch(error => {
+            console.error('❌ Erro ao fazer logout:', error);
+            showToast('Erro ao fazer logout', 'error');
+        });
     const icon = type === 'success' ? '✓' : '✕';
 
     toast.className = `toast ${colors} text-white px-4 py-3 rounded shadow-lg flex items-center gap-3 min-w-[300px] mb-2 font-medium text-sm`;
