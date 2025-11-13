@@ -170,7 +170,19 @@ const firebaseConfig = {
   "rules": {
     "tasks": {
       ".read": "auth != null",
-      ".write": "auth != null"
+      ".write": "auth != null",
+      ".indexOn": ["idOS", "priority", "column"]
+    },
+    "logs": {
+      ".read": "auth != null && (root.child('users/' + auth.uid + '/role').val() === 'admin')",
+      ".write": "auth != null",
+      ".indexOn": ["timestamp"]
+    },
+    "users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
     }
   }
 }
