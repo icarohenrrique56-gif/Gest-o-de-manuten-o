@@ -43,17 +43,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Event Listeners
     setupEventListeners();
-
-    // Fallback: força atualização UI após 500ms se for necessário
-    setTimeout(() => {
-        const user = auth.currentUser;
-        if (user && !document.getElementById('add-task-btn').disabled) {
-            console.log('✅ Botão Nova OS já habilitado (updateAuthUI funcionou)');
-        } else if (user) {
-            console.log('⚠️ Fallback: habilitando Nova OS manualmente');
-            updateAuthUI(user);
-        }
-    }, 500);
 });
 
 // ============= SETUP EVENTOS =============
@@ -147,8 +136,6 @@ function renderTasks() {
 
     // Atualizar contadores
     updateCounters();
-    // Inicializar Sortable após renderizar tarefas
-    try { setupSortable(); } catch (e) { console.warn('Sortable init falhou:', e); }
 }
 
 function createTaskElement(task) {
@@ -177,9 +164,6 @@ function createTaskElement(task) {
             <button onclick="editTask('${task.id}')" class="text-xs text-blue-600 hover:underline">Editar</button>
         </div>
     `;
-
-    // marca o elemento com id da task para uso pelo Sortable
-    div.dataset.taskId = task.id;
 
     return div;
 }
@@ -319,195 +303,6 @@ function filterTasks() {
             if (col) col.appendChild(createTaskElement(task));
         });
     }
-}
-
-// ============= SORTABLE (Arrastar/Soltar) =============
-function setupSortable() {
-    const columnIds = ['col-restaurar', 'col-diagnostico', 'col-restauracao', 'col-teste', 'col-pronto'];
-    columnIds.forEach(colId => {
-        const col = document.getElementById(colId);
-        if (!col) return;
-
-        // evita inicializar duas vezes
-        if (col._sortableInitialized) return;
-
-        // cria instancia Sortable
-        /* global Sortable */
-        new Sortable(col, {
-            group: 'kanban',
-            animation: 150,
-            draggable: '.p-3',
-            onEnd: async (evt) => {
-                const item = evt.item;
-                const taskId = item.dataset.taskId;
-                const from = evt.from;
-                const to = evt.to;
-                const oldIndex = evt.oldIndex;
-                const newIndex = evt.newIndex;
-
-                const newColumn = to.dataset.columnId || to.id;
-                const oldColumn = from.dataset.columnId || from.id;
-
-                if (!taskId) return;
-
-                console.log('➜ Move detectado:', { taskId, from: oldColumn, to: newColumn, oldIndex, newIndex });
-
-                // atualização otimista em memória
-                const task = currentTasks.find(t => t.id === taskId);
-                const prevColumn = task ? task.column : oldColumn;
-                if (task) task.column = newColumn;
-
-                // Abrir modal de comentário para capturar descrição da etapa
-                await openStatusCommentModal(taskId, newColumn, prevColumn, item, from, oldIndex);
-            }
-        });
-
-        col._sortableInitialized = true;
-    });
-}
-
-// ============= COMENTÁRIOS DE STATUS =============
-
-function openStatusCommentModal(taskId, newColumn, oldColumn, domItem, fromCol, oldIndex) {
-    return new Promise((resolve) => {
-        const modal = document.getElementById('status-comment-modal');
-        if (!modal) {
-            console.error('❌ Modal de comentário não encontrado');
-            resolve();
-            return;
-        }
-
-        const commentInput = document.getElementById('status-comment-input');
-        const saveBtn = document.getElementById('save-status-comment-btn');
-        const cancelBtn = document.getElementById('cancel-status-comment-btn');
-
-        if (!commentInput || !saveBtn || !cancelBtn) {
-            console.error('❌ Elementos do modal não encontrados');
-            resolve();
-            return;
-        }
-
-        // Limpar input e abrir modal
-        commentInput.value = '';
-        commentInput.focus();
-        modal.classList.remove('hidden');
-
-        // Handler para salvar
-        const onSave = async () => {
-            const comment = commentInput.value.trim();
-            modal.classList.add('hidden');
-            removeListeners();
-
-            try {
-                // Salvar comentário + atualizar coluna
-                const updateData = {
-                    column: newColumn,
-                    updatedAt: Date.now(),
-                    lastStatus: comment || '(sem descrição)',
-                    lastStatusBy: currentUser ? currentUser.email : 'anônimo',
-                    lastStatusAt: Date.now()
-                };
-
-                // Se houver histórico de comentários, manter array
-                const task = currentTasks.find(t => t.id === taskId);
-                if (task && task.statusHistory && Array.isArray(task.statusHistory)) {
-                    updateData.statusHistory = [
-                        ...task.statusHistory,
-                        {
-                            column: newColumn,
-                            comment: comment || '(sem descrição)',
-                            by: currentUser ? currentUser.email : 'anônimo',
-                            at: Date.now()
-                        }
-                    ];
-                } else {
-                    updateData.statusHistory = [{
-                        column: newColumn,
-                        comment: comment || '(sem descrição)',
-                        by: currentUser ? currentUser.email : 'anônimo',
-                        at: Date.now()
-                    }];
-                }
-
-                await db.ref(`tasks/${taskId}`).update(updateData);
-                showToast(`OS movida para ${getColumnLabel(newColumn)}. ${comment ? 'Comentário: ' + comment : ''}`, 'success');
-                updateCounters();
-                resolve();
-            } catch (error) {
-                console.error('❌ Erro ao atualizar status:', error);
-
-                // Reverter DOM
-                if (fromCol) {
-                    if (oldIndex >= fromCol.children.length) {
-                        fromCol.appendChild(domItem);
-                    } else {
-                        fromCol.insertBefore(domItem, fromCol.children[oldIndex]);
-                    }
-                }
-
-                // Reverter memória
-                const task = currentTasks.find(t => t.id === taskId);
-                if (task) task.column = oldColumn;
-
-                const code = (error && (error.code || '')).toString().toLowerCase();
-                if (code.includes('permission')) {
-                    showToast('Permissão negada: não foi possível atualizar. Verifique regras do Realtime DB.', 'error');
-                } else if (code.includes('auth')) {
-                    showToast('Autenticação necessária. Faça login.', 'error');
-                } else {
-                    showToast('Erro ao atualizar status: ' + (error.message || ''), 'error');
-                }
-                resolve();
-            }
-        };
-
-        const onCancel = () => {
-            modal.classList.add('hidden');
-            removeListeners();
-
-            // Reverter DOM
-            if (fromCol) {
-                if (oldIndex >= fromCol.children.length) {
-                    fromCol.appendChild(domItem);
-                } else {
-                    fromCol.insertBefore(domItem, fromCol.children[oldIndex]);
-                }
-            }
-
-            // Reverter memória
-            const task = currentTasks.find(t => t.id === taskId);
-            if (task) task.column = oldColumn;
-
-            showToast('Movimento cancelado.', 'error');
-            resolve();
-        };
-
-        const onKeyDown = (e) => {
-            if (e.key === 'Enter' && e.ctrlKey) onSave();
-            if (e.key === 'Escape') onCancel();
-        };
-
-        const removeListeners = () => {
-            saveBtn.removeEventListener('click', onSave);
-            cancelBtn.removeEventListener('click', onCancel);
-            commentInput.removeEventListener('keydown', onKeyDown);
-        };
-
-        saveBtn.addEventListener('click', onSave);
-        cancelBtn.addEventListener('click', onCancel);
-        commentInput.addEventListener('keydown', onKeyDown);
-    });
-}
-
-function getColumnLabel(colId) {
-    const labels = {
-        'col-restaurar': 'A Restaurar',
-        'col-diagnostico': 'Em Diagnóstico',
-        'col-restauracao': 'Em Restauração',
-        'col-teste': 'Qualidade/Teste',
-        'col-pronto': 'Pronto'
-    };
-    return labels[colId] || colId;
 }
 
 // ============= AUTENTICAÇÃO =============
